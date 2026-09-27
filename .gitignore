@@ -1,0 +1,15 @@
+# Caché en disco: playlist parseada y XMLTV descomprimido.
+# Se regeneran solos en el primer arranque.
+data/
+
+# Logs
+*.log
+npm-debug.log*
+
+# hls.js se descarga con `npm run vendor:hls`; se versiona para poder arrancar
+# sin red. Descomenta la línea si prefieres no trackear el vendor.
+# public/vendor/hls.min.js
+
+# Node
+node_modules/
+.DS_Store

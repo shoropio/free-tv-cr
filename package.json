@@ -1,0 +1,18 @@
+{
+  "name": "free-tv-cr",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Reproductor IPTV de los canales de Costa Rica de iptv-org, con proxy HLS, EPG y comprobación de canales.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test scripts/test.js",
+    "probe": "node scripts/probe.js",
+    "vendor:hls": "node scripts/vendor-hls.js"
+  },
+  "dependencies": {}
+}

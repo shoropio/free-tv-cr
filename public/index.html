@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>IPTV Costa Rica</title>
+    <meta name="description" content="Reproductor de los canales de televisión de Costa Rica publicados por iptv-org, con guía de programación y comprobación de canales." />
+    <meta name="theme-color" content="#0b1220" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230b1220'/%3E%3Ctext x='50' y='68' font-size='54' text-anchor='middle' fill='%2338bdf8' font-family='sans-serif' font-weight='bold'%3E%E2%99%FA%3C/text%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/css/styles.css" />
+    <script src="/vendor/hls.min.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#channel-grid">Saltar al listado de canales</a>
+
+    <header class="topbar">
+      <div class="topbar__brand">
+        <span class="topbar__logo" aria-hidden="true">📺</span>
+        <div>
+          <h1 class="topbar__title">IPTV Costa Rica</h1>
+          <p class="topbar__subtitle" id="playlist-status">Cargando canales…</p>
+        </div>
+      </div>
+
+      <div class="topbar__search">
+        <label class="sr-only" for="search">Buscar canales</label>
+        <input
+          id="search"
+          type="search"
+          placeholder="Buscar canal o categoría…"
+          autocomplete="off"
+          enterkeyhint="search"
+        />
+        <button type="button" class="icon-btn topbar__search-clear" id="search-clear" title="Limpiar búsqueda" hidden>✕</button>
+      </div>
+
+      <div class="topbar__actions">
+        <button type="button" class="btn" id="btn-check" title="Comprobar qué canales están en vivo">
+          <span aria-hidden="true">📡</span> <span class="btn__label">Comprobar</span>
+        </button>
+        <button type="button" class="btn" id="btn-refresh" title="Actualizar la lista de canales">
+          <span aria-hidden="true">🔄</span> <span class="btn__label">Actualizar</span>
+        </button>
+        <button type="button" class="btn btn--icon" id="btn-help" title="Atajos de teclado y ayuda" aria-label="Ayuda">?</button>
+      </div>
+    </header>
+
+    <nav class="filters" aria-label="Filtros">
+      <div class="chips" id="group-chips"></div>
+      <div class="filters__right">
+        <label class="switch">
+          <input type="checkbox" id="hide-offline" />
+          <span>Ocultar caídos</span>
+        </label>
+        <label class="switch">
+          <input type="checkbox" id="show-epg" checked />
+          <span>Mostrar programación</span>
+        </label>
+      </div>
+    </nav>
+
+    <main>
+      <p class="status-banner" id="status-banner" hidden></p>
+      <div class="grid" id="channel-grid" role="list"></div>
+      <p class="empty-state" id="empty-state" hidden>Ningún canal coincide con tu búsqueda.</p>
+    </main>
+
+    <footer class="footer">
+      <p>
+        Fuentes de vídeo: <a href="https://github.com/iptv-org/iptv" target="_blank" rel="noopener noreferrer">iptv-org</a> ·
+        Guía: <a href="https://iptv-epg.org" target="_blank" rel="noopener noreferrer">iptv-epg.org</a>
+      </p>
+      <p class="footer__note">
+        Uso personal y educativo. Muchos canales son privado o restringido geográficamente; su disponibilidad
+        depende de tu conexión y de tu ubicación.
+      </p>
+    </footer>
+
+    <!-- ===================== Reproductor ===================== -->
+    <div class="player" id="player" hidden aria-hidden="true">
+      <div class="player__backdrop" id="player-backdrop"></div>
+
+      <div class="player__shell" role="dialog" aria-modal="true" aria-label="Reproductor">
+        <div class="player__stage">
+          <video
+            id="video"
+            class="player__video"
+            playsinline
+            controls
+            preload="none"
+            poster=""
+          ></video>
+
+          <div class="player__overlay" id="player-overlay">
+            <div class="spinner" aria-hidden="true"></div>
+            <p class="player__status" id="player-status">Cargando…</p>
+          </div>
+
+          <div class="player__topbar">
+            <button type="button" class="icon-btn" id="btn-close-player" title="Cerrar (Esc)" aria-label="Cerrar reproductor">✕</button>
+            <div class="player__now">
+              <img class="player__logo" id="player-logo" alt="" referrerpolicy="no-referrer" />
+              <div>
+                <strong id="player-channel-name">—</strong>
+                <span id="player-channel-meta"></span>
+              </div>
+            </div>
+            <div class="player__topactions">
+              <button type="button" class="icon-btn" id="btn-fav" title="Favorito" aria-label="Marcar como favorito">☆</button>
+            </div>
+          </div>
+
+          <div class="player__sidebar">
+            <button type="button" class="icon-btn player__side-toggle" id="btn-sidebar" title="Lista de canales" aria-label="Mostrar lista de canales">☰</button>
+            <div class="player__list" id="player-list"></div>
+          </div>
+        </div>
+
+        <div class="player__panel">
+          <div class="player__controls">
+            <button type="button" class="icon-btn" id="btn-prev" title="Canal anterior (←)" aria-label="Canal anterior">⏮</button>
+            <button type="button" class="icon-btn" id="btn-next" title="Canal siguiente (→)" aria-label="Canal siguiente">⏭</button>
+            <button type="button" class="icon-btn" id="btn-play" title="Reproducir / Pausa (Espacio)" aria-label="Reproducir">▶</button>
+            <button type="button" class="icon-btn" id="btn-mute" title="Silenciar (M)" aria-label="Silenciar">🔊</button>
+            <button type="button" class="icon-btn" id="btn-pip" title="Imagen en imagen (P)" aria-label="Imagen en imagen">⧉</button>
+            <button type="button" class="icon-btn" id="btn-fullscreen" title="Pantalla completa (F)" aria-label="Pantalla completa">⛶</button>
+
+            <label class="quality" id="quality-wrap" hidden>
+              <span>Calidad</span>
+              <select id="quality-select" aria-label="Calidad de vídeo"></select>
+            </label>
+
+            <span class="player__stat" id="player-stat"></span>
+          </div>
+
+          <div class="player__tabs" role="tablist">
+            <button type="button" class="tab is-active" data-tab="epg" role="tab" aria-selected="true">Programación</button>
+            <button type="button" class="tab" data-tab="channels" role="tab" aria-selected="false">Todos los canales</button>
+          </div>
+
+          <div class="player__tabpanel is-active" data-panel="epg">
+            <div id="epg-now" class="epg-now"></div>
+            <h3 class="player__h3" id="epg-timeline-title">Próximos programas</h3>
+            <ol class="epg-timeline" id="epg-timeline"></ol>
+          </div>
+
+          <div class="player__tabpanel" data-panel="channels">
+            <input type="search" id="player-search" class="player__search" placeholder="Filtrar canales…" autocomplete="off" />
+            <div class="player__grid" id="player-grid"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== Ayuda ===================== -->
+    <div class="modal" id="help-modal" hidden aria-hidden="true">
+      <div class="modal__box" role="dialog" aria-modal="true" aria-label="Ayuda">
+        <div class="modal__head">
+          <h2>Ayuda y atajos</h2>
+          <button type="button" class="icon-btn" id="btn-help-close" aria-label="Cerrar">✕</button>
+        </div>
+        <div class="modal__body">
+          <h3>Atajos de teclado</h3>
+          <dl class="keys">
+            <dt><kbd>/</kbd></dt><dd>Enfocar la búsqueda</dd>
+            <dt><kbd>Enter</kbd></dt><dd>Reproducir el primer resultado</dd>
+            <dt><kbd>Esc</kbd></dt><dd>Cerrar reproductor o ayuda</dd>
+            <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Canal anterior / siguiente</dd>
+            <dt><kbd>Espacio</kbd></dt><dd>Reproducir o pausar</dd>
+            <dt><kbd>M</kbd></dt><dd>Silenciar</dd>
+            <dt><kbd>F</kbd></dt><dd>Pantalla completa</dd>
+            <dt><kbd>P</kbd></dt><dd>Imagen en imagen</dd>
+            <dt><kbd>S</kbd></dt><dd>Marcar como favorito</dd>
+            <dt><kbd>G</kbd></dt><dd>Ir a favoritos</dd>
+          </dl>
+          <h3>Sobre la conexión</h3>
+          <p>
+            Los canales se sirven a través de un proxy local que reescribe las listas HLS. Eso permite ver la
+            mayoría de los canales aunque el servidor original no envíe cabeceras CORS.
+          </p>
+          <p>
+            Con <code>proxy.policy</code> en <em>«playlist»</em>, si un canal falla con
+            <em>«Host no permitido»</em> es porque su servidor redirige a un dominio de CDN distinto al de la
+            lista: puedes aprobarlo con el botón que aparece en el mensaje de error. Con la política por defecto
+            (<em>«public»</em>) solo se bloquean las direcciones privadas o reservadas.
+          </p>
+          <h3>Guía de programación (EPG)</h3>
+          <p id="help-epg">
+            La guía cubre la programación de los canales disponibles en la fuente configurada.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="toasts" id="toasts" aria-live="polite"></div>
+
+    <script type="module" src="/js/app.js"></script>
+  </body>
+</html>
