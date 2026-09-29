@@ -267,7 +267,7 @@ main { padding: 20px; max-width: 1700px; margin: 0 auto; }
 
 .player__shell {
   position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 380px;
-  width: min(1500px, 100%); height: min(900px, 100%);
+  width: min(1500px, 100%); height: min(700px, 100%);
   background: var(--bg-soft); border: 1px solid var(--border); border-radius: var(--radius);
   box-shadow: var(--shadow); overflow: hidden;
 }
