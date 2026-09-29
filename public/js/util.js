@@ -108,6 +108,55 @@ export const $ = (selector, scope = document) => scope.querySelector(selector);
 export const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
 
 /* ------------------------------------------------------------------ *
+ * Modal focus management
+ * ------------------------------------------------------------------ */
+
+const FOCUSABLE_SEL =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), ' +
+  'textarea:not([disabled]), video[controls], [tabindex]:not([tabindex="-1"])';
+
+/** Focusable descendants of `container` that are actually rendered. */
+const focusableIn = (container) =>
+  [...container.querySelectorAll(FOCUSABLE_SEL)].filter((node) => node.getClientRects().length > 0);
+
+/**
+ * Keeps Tab inside `container` while a modal is open. Call from a document
+ * keydown listener; the default is only prevented when focus would escape.
+ */
+export function trapTab(container, event) {
+  const nodes = focusableIn(container);
+  if (!nodes.length) return;
+  const first = nodes[0];
+  const last = nodes[nodes.length - 1];
+  const active = document.activeElement;
+  if (!container.contains(active)) {
+    event.preventDefault();
+    (event.shiftKey ? last : first).focus({ preventScroll: true });
+    return;
+  }
+  if (event.shiftKey && active === first) {
+    event.preventDefault();
+    last.focus({ preventScroll: true });
+  } else if (!event.shiftKey && active === last) {
+    event.preventDefault();
+    first.focus({ preventScroll: true });
+  }
+}
+
+/** Page content hidden from clicks and screen readers while a modal is open. */
+const BACKGROUND = ['.skip-link', '.topbar', '.filters', 'main', '.footer'];
+
+export function setBackgroundInert(on) {
+  for (const selector of BACKGROUND) document.querySelector(selector)?.toggleAttribute('inert', on);
+}
+
+/** Returns focus to where it was before the modal opened (or to `fallback`). */
+export function restoreFocus(previous, fallback) {
+  const target = previous?.isConnected ? previous : fallback;
+  if (target?.isConnected) target.focus({ preventScroll: true });
+}
+
+/* ------------------------------------------------------------------ *
  * Toasts
  * ------------------------------------------------------------------ */
 

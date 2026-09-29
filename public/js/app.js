@@ -1,7 +1,9 @@
 import { api } from './api.js';
 import { store } from './store.js';
 import { Player } from './player.js';
-import { $, $$, debounce, el, fmtTime, fold, initials, toast } from './util.js';
+import {
+  $, $$, debounce, el, fmtTime, fold, initials, restoreFocus, setBackgroundInert, toast, trapTab,
+} from './util.js';
 
 const state = {
   channels: [],
@@ -29,7 +31,6 @@ const dom = {
 
 const player = new Player({
   getChannels: () => filteredChannels(),
-  onClose: () => dom.search.blur(),
   onChange: () => render(),
 });
 
@@ -44,6 +45,7 @@ async function loadChannels() {
     state.groups = data.groups;
     state.status = data.status ?? {};
     dom.playlistStatus.textContent = `${data.channels.length} canales · ${data.country}`;
+    clearBanner();
     renderChips();
     applySettings();
     render();
@@ -82,11 +84,21 @@ async function runCheck(button) {
   button?.classList.add('is-spinning');
   button?.setAttribute('disabled', '');
   const original = button?.innerHTML;
-  if (button) button.innerHTML = '<span>⏳</span> <span class="btn__label">Comprobando…</span>';
+  const ids = state.channels.map((channel) => channel.id);
+  const CHUNK = 12;
+  const label = (done) => `<span>⏳</span> <span class="btn__label">Comprobando… ${done}/${ids.length}</span>`;
+  if (button) button.innerHTML = label(0);
 
   try {
-    const data = await api.check();
-    state.status = data.status ?? {};
+    let done = 0;
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const chunk = ids.slice(i, i + CHUNK);
+      const data = await api.check(chunk);
+      Object.assign(state.status, data.status ?? {});
+      done += chunk.length;
+      if (button) button.innerHTML = label(done);
+      render();
+    }
     const values = Object.values(state.status);
     const dead = values.filter((s) => !s.ok).length;
     const offline = values.length - dead;
@@ -187,61 +199,52 @@ function renderCard(channel) {
   ].filter(Boolean);
 
   return el(
-    'button',
+    'div',
     {
-      type: 'button',
       class: `card${status && !status.ok ? ' is-offline' : ''}`,
       role: 'listitem',
       dataset: { id: channel.id },
-      onclick: () => openPlayer(channel),
     },
     [
-      el('span', {
+      el('button', { type: 'button', class: 'card__main', onclick: () => openPlayer(channel) }, [
+        el('div', { class: 'card__logo-wrap' }, [
+          el('span', { class: 'card__number', text: String(channel.number) }),
+          channel.logo
+            ? el('img', {
+                class: 'card__logo',
+                src: `/img?u=${encodeURIComponent(channel.logo)}`,
+                alt: '',
+                loading: 'lazy',
+                referrerPolicy: 'no-referrer',
+                onerror: (event) => {
+                  // Swap in a monogram when the logo host is unreachable.
+                  const fallback = el('span', { class: 'card__logo-fallback', text: initials(channel.name) });
+                  event.target.replaceWith(fallback);
+                },
+              })
+            : el('span', { class: 'card__logo-fallback', text: initials(channel.name) }),
+        ]),
+        el('div', { class: 'card__body' }, [
+          el('span', { class: 'card__name', text: channel.name }),
+          el('div', { class: 'card__meta' }, [el('span', { class: 'card__group', text: channel.groupLabels?.[0] ?? channel.groups[0] }), ...badges]),
+        ]),
+        store.settings.showEpg && state.epgReady
+          ? el('div', { class: 'card__epg' }, epgLines(channel.id) ?? [
+              el('div', { class: 'epg-line' }, [
+                el('span', { class: 'epg-line__title', text: 'Sin guía disponible' }),
+              ]),
+            ])
+          : null,
+      ]),
+      el('button', {
+        type: 'button',
         class: 'card__fav',
-        role: 'button',
-        tabIndex: 0,
+        'aria-pressed': String(favorite),
+        'aria-label': favorite ? `Quitar ${channel.name} de favoritos` : `Añadir ${channel.name} a favoritos`,
         title: favorite ? 'Quitar de favoritos' : 'Añadir a favoritos',
         text: favorite ? '★' : '☆',
-        onclick: (event) => {
-          event.stopPropagation();
-          store.toggleFavorite(channel.id);
-        },
-        onkeydown: (event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            event.stopPropagation();
-            store.toggleFavorite(channel.id);
-          }
-        },
+        onclick: () => store.toggleFavorite(channel.id),
       }),
-      el('div', { class: 'card__logo-wrap' }, [
-        el('span', { class: 'card__number', text: String(channel.number) }),
-        channel.logo
-          ? el('img', {
-              class: 'card__logo',
-              src: `/img?u=${encodeURIComponent(channel.logo)}`,
-              alt: '',
-              loading: 'lazy',
-              referrerPolicy: 'no-referrer',
-              onerror: (event) => {
-                // Swap in a monogram when the logo host is unreachable.
-                const fallback = el('span', { class: 'card__logo-fallback', text: initials(channel.name) });
-                event.target.replaceWith(fallback);
-              },
-            })
-          : el('span', { class: 'card__logo-fallback', text: initials(channel.name) }),
-      ]),
-      el('div', { class: 'card__body' }, [
-        el('span', { class: 'card__name', text: channel.name }),
-        el('div', { class: 'card__meta' }, [el('span', { class: 'card__group', text: channel.groupLabels?.[0] ?? channel.groups[0] }), ...badges]),
-      ]),
-      store.settings.showEpg && state.epgReady
-        ? el('div', { class: 'card__epg' }, epgLines(channel.id) ?? [
-            el('div', { class: 'epg-line' }, [
-              el('span', { class: 'epg-line__title', text: 'Sin guía disponible' }),
-            ]),
-          ])
-        : null,
     ],
   );
 }
@@ -255,13 +258,19 @@ function render() {
   if (player.isOpen) player.refreshLists();
 }
 
+let bannerTimer = null;
+
 function showBanner(message, kind = 'info') {
   dom.banner.textContent = message;
   dom.banner.className = `status-banner is-${kind}`;
   dom.banner.hidden = false;
+  clearTimeout(bannerTimer);
+  // Los avisos no bloqueantes se ocultan solos; los errores quedan hasta actuar.
+  if (kind !== 'error') bannerTimer = setTimeout(clearBanner, 20000);
 }
 
 function clearBanner() {
+  clearTimeout(bannerTimer);
   dom.banner.hidden = true;
 }
 
@@ -329,13 +338,21 @@ $('#btn-refresh').addEventListener('click', async (event) => {
   }
 });
 
+let helpReturnFocus = null;
+
 const openHelp = () => {
+  helpReturnFocus = document.activeElement;
   dom.help.hidden = false;
   dom.help.setAttribute('aria-hidden', 'false');
+  setBackgroundInert(true);
+  dom.help.querySelector('.modal__box').focus({ preventScroll: true });
 };
 const closeHelp = () => {
   dom.help.hidden = true;
   dom.help.setAttribute('aria-hidden', 'true');
+  setBackgroundInert(false);
+  restoreFocus(helpReturnFocus, $('#btn-help'));
+  helpReturnFocus = null;
 };
 
 $('#btn-help').addEventListener('click', openHelp);
@@ -345,8 +362,20 @@ dom.help.addEventListener('click', (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
+  // Con un modal abierto, Tab nunca sale de él.
+  if (event.key === 'Tab') {
+    const modal = !dom.help.hidden
+      ? dom.help.querySelector('.modal__box')
+      : player.isOpen
+        ? document.querySelector('.player__shell')
+        : null;
+    if (modal) trapTab(modal, event);
+    return;
+  }
+
   const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(event.target.tagName);
   const key = event.key.toLowerCase();
+  const modalOpen = player.isOpen || !dom.help.hidden;
 
   if (key === 'escape') {
     if (!dom.help.hidden) return closeHelp();
@@ -356,14 +385,14 @@ document.addEventListener('keydown', (event) => {
 
   if (typing) return;
 
-  if (key === '/') {
+  if (key === '/' && !modalOpen) {
     event.preventDefault();
     dom.search.focus();
     dom.search.select();
     return;
   }
 
-  if (key === 'enter' && !player.isOpen) {
+  if (key === 'enter' && !modalOpen) {
     const first = filteredChannels()[0];
     if (first) {
       event.preventDefault();

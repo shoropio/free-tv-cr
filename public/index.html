@@ -61,7 +61,7 @@
 
     <main>
       <p class="status-banner" id="status-banner" hidden></p>
-      <div class="grid" id="channel-grid" role="list"></div>
+      <div class="grid" id="channel-grid" role="list" tabindex="-1"></div>
       <p class="empty-state" id="empty-state" hidden>Ningún canal coincide con tu búsqueda.</p>
     </main>
 
@@ -81,7 +81,7 @@
     <div class="player" id="player" hidden aria-hidden="true">
       <div class="player__backdrop" id="player-backdrop"></div>
 
-      <div class="player__shell" role="dialog" aria-modal="true" aria-label="Reproductor">
+      <div class="player__shell" role="dialog" aria-modal="true" aria-label="Reproductor" tabindex="-1">
         <div class="player__stage">
           <video
             id="video"
@@ -94,7 +94,7 @@
 
           <div class="player__overlay" id="player-overlay">
             <div class="spinner" aria-hidden="true"></div>
-            <p class="player__status" id="player-status">Cargando…</p>
+            <p class="player__status" id="player-status" role="status">Cargando…</p>
           </div>
 
           <div class="player__topbar">
@@ -147,7 +147,7 @@
 
           <div class="player__tabpanel" data-panel="channels">
             <input type="search" id="player-search" class="player__search" placeholder="Filtrar canales…" autocomplete="off" />
-            <div class="player__grid" id="player-grid"></div>
+            <div class="player__grid" id="player-grid" role="list"></div>
           </div>
         </div>
       </div>
@@ -155,7 +155,7 @@
 
     <!-- ===================== Ayuda ===================== -->
     <div class="modal" id="help-modal" hidden aria-hidden="true">
-      <div class="modal__box" role="dialog" aria-modal="true" aria-label="Ayuda">
+      <div class="modal__box" role="dialog" aria-modal="true" aria-label="Ayuda" tabindex="-1">
         <div class="modal__head">
           <h2>Ayuda y atajos</h2>
           <button type="button" class="icon-btn" id="btn-help-close" aria-label="Cerrar">✕</button>

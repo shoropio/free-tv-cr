@@ -2,7 +2,7 @@ import { api } from './api.js';
 import { store } from './store.js';
 import {
   $, el, fmtRange, fmtTime, fmtBitrate, fold, initials, isCurrent, isPast,
-  relativeLabel, toast,
+  relativeLabel, restoreFocus, setBackgroundInert, toast,
 } from './util.js';
 
 const HLS_ATTACH_TIMEOUT = 12000;
@@ -24,10 +24,14 @@ export class Player {
     this.statsTimer = null;
     this.epgTimer = null;
     this.attachTimer = null;
+    this.retryTimer = null;
     this.pendingHost = null;
+    this.netRetries = 0;
+    this.returnFocus = null;
 
     this.video = $('#video');
     this.root = $('#player');
+    this.shell = $('.player__shell');
     this.overlay = $('#player-overlay');
     this.statusEl = $('#player-status');
     this.statEl = $('#player-stat');
@@ -49,13 +53,18 @@ export class Player {
   }
 
   async open(channel) {
+    this.returnFocus = document.activeElement;
     this.root.hidden = false;
     this.root.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
-    this.#renderList();
+    setBackgroundInert(true);
+    // Búsqueda limpia: input, lista lateral y rejilla empiezan sincronizados.
+    $('#player-search').value = '';
+    this.#renderList('');
     this.#renderGrid('');
     $('#btn-sidebar').classList.remove('is-open');
     this.listEl.classList.remove('is-open');
+    this.shell.focus({ preventScroll: true });
     await this.load(channel);
   }
 
@@ -64,12 +73,16 @@ export class Player {
     this.root.hidden = true;
     this.root.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
+    setBackgroundInert(false);
+    restoreFocus(this.returnFocus, $('#channel-grid'));
+    this.returnFocus = null;
     this.onClose?.();
   }
 
   /** Loads a channel into the existing player (used for next/prev and rail clicks). */
   async load(channel) {
     this.channel = channel;
+    this.netRetries = 0;
 
     $('#player-channel-name').textContent = channel.name;
     const meta = [(channel.groupLabels ?? channel.groups).join(', '), channel.is24x7 ? '24/7' : 'No 24/7', channel.upstreamHost]
@@ -97,12 +110,20 @@ export class Player {
     if (next) this.load(next);
   }
 
-  visibleChannels() {
-    const query = fold($('#player-search').value);
-    if (!query) return this.getChannels();
-    return this.getChannels().filter(
-      (c) => fold(c.name).includes(query) || fold((c.groupLabels ?? c.groups).join(' ')).includes(query),
+  /** Channels matching a free-text query (name or category), shared by every view. */
+  #matching(query) {
+    const q = fold(query);
+    const list = this.getChannels();
+    if (!q) return list;
+    return list.filter(
+      (channel) =>
+        fold(channel.name).includes(q) ||
+        fold((channel.groupLabels ?? channel.groups).join(' ')).includes(q),
     );
+  }
+
+  visibleChannels() {
+    return this.#matching($('#player-search').value);
   }
 
   /* ============================== HLS ============================== */
@@ -206,8 +227,29 @@ export class Player {
 
     switch (data.type) {
       case Hls.ErrorTypes.NETWORK_ERROR:
+        this.netRetries += 1;
+        if (this.netRetries > 3) {
+          // Sin límite esto daría vueltas contra un stream muerto: se para y se
+          // ofrece un reintento manual.
+          this.#setStatus('El canal no responde. Puede estar caído o restringido a tu región.', false,
+            el('div', { class: 'toast__actions' }, [
+              el('button', {
+                type: 'button',
+                text: 'Reintentar',
+                onclick: () => this.channel && this.load(this.channel),
+              }),
+            ]));
+          this.hls?.stopLoad();
+          break;
+        }
+        // startLoad() no siempre reanuda (p. ej. manifiesto 404): se reconecta
+        // entero con un margen. El contador solo lo reinician load() y playing.
         this.#setStatus('Error de red. Reintentando…', true);
-        this.hls?.startLoad();
+        clearTimeout(this.retryTimer);
+        this.retryTimer = setTimeout(() => {
+          this.retryTimer = null;
+          if (this.channel && this.isOpen) this.#attach(this.channel);
+        }, 1200);
         break;
       case Hls.ErrorTypes.MEDIA_ERROR:
         this.#setStatus('Error de medio. Recuperando…', true);
@@ -246,7 +288,9 @@ export class Player {
 
   #teardownStream() {
     clearTimeout(this.attachTimer);
+    clearTimeout(this.retryTimer);
     this.attachTimer = null;
+    this.retryTimer = null;
     if (this.hls) {
       this.hls.destroy();
       this.hls = null;
@@ -409,8 +453,8 @@ export class Player {
 
   /* ============================== Lists ============================== */
 
-  #renderList() {
-    const list = this.getChannels();
+  #renderList(query = '') {
+    const list = this.#matching(query);
     this.listEl.replaceChildren(
       ...list.map((channel) =>
         el(
@@ -419,7 +463,11 @@ export class Player {
             type: 'button',
             class: 'player__list-item',
             dataset: { id: channel.id },
-            onclick: () => this.load(channel),
+            onclick: () => {
+              // Elegir de la lista la cierra: no debe seguir tapando el vídeo.
+              this.listEl.classList.remove('is-open');
+              this.load(channel);
+            },
           },
           [
             channel.logo
@@ -433,25 +481,20 @@ export class Player {
     this.#markCurrent();
   }
 
-  #renderGrid(query) {
-    const q = fold(query);
-    const list = q
-      ? this.getChannels().filter(
-          (c) => fold(c.name).includes(q) || fold((c.groupLabels ?? c.groups).join(' ')).includes(q),
-        )
-      : this.getChannels();
+  #renderGrid(query = '') {
+    const list = this.#matching(query);
+
+    if (!list.length) {
+      this.gridEl.replaceChildren(
+        el('p', { class: 'empty-state', role: 'listitem', text: 'Ningún canal coincide con tu búsqueda.' }),
+      );
+      return;
+    }
 
     this.gridEl.replaceChildren(
       ...list.map((channel) =>
-        el(
-          'button',
-          {
-            type: 'button',
-            class: 'card',
-            dataset: { id: channel.id },
-            onclick: () => this.load(channel),
-          },
-          [
+        el('div', { class: 'card', role: 'listitem', dataset: { id: channel.id } }, [
+          el('button', { type: 'button', class: 'card__main', onclick: () => this.load(channel) }, [
             el('div', { class: 'card__logo-wrap' }, [
               channel.logo
                 ? el('img', {
@@ -466,8 +509,8 @@ export class Player {
             el('div', { class: 'card__body' }, [
               el('span', { class: 'card__name', text: channel.name }),
             ]),
-          ],
-        ),
+          ]),
+        ]),
       ),
     );
     this.#markCurrent();
@@ -527,7 +570,10 @@ export class Player {
 
     this.qualitySelect.addEventListener('change', (event) => this.#setQuality(event.target.value));
 
-    $('#player-search').addEventListener('input', (event) => this.#renderGrid(event.target.value));
+    $('#player-search').addEventListener('input', (event) => {
+      this.#renderList(event.target.value);
+      this.#renderGrid(event.target.value);
+    });
 
     for (const tab of this.root.querySelectorAll('.tab')) {
       tab.addEventListener('click', () => {
@@ -556,6 +602,7 @@ export class Player {
     this.video.addEventListener('waiting', () => this.#setStatus('Buffering…', true));
     this.video.addEventListener('playing', () => {
       if (!this.pendingHost) this.#clearError();
+      this.netRetries = 0;
       this.startStats();
     });
     this.video.addEventListener('error', () => {
@@ -609,7 +656,8 @@ export class Player {
   }
 
   refreshLists() {
-    this.#renderList();
-    this.#renderGrid($('#player-search').value);
+    const query = $('#player-search').value;
+    this.#renderList(query);
+    this.#renderGrid(query);
   }
 }
