@@ -5,77 +5,320 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>IPTV Costa Rica</title>
     <meta name="description" content="Reproductor de los canales de televisión de Costa Rica publicados por iptv-org, con guía de programación y comprobación de canales." />
-    <meta name="theme-color" content="#0b1220" />
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230b1220'/%3E%3Ctext x='50' y='68' font-size='54' text-anchor='middle' fill='%2338bdf8' font-family='sans-serif' font-weight='bold'%3E%E2%99%FA%3C/text%3E%3C/svg%3E" />
+    <meta name="theme-color" content="#0d1117" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230d1117'/%3E%3Ctext x='50' y='68' font-size='54' text-anchor='middle' fill='%232f81f7' font-family='sans-serif' font-weight='bold'%3E%E2%99%FA%3C/text%3E%3C/svg%3E" />
     <link rel="stylesheet" href="/css/styles.css" />
     <script src="/vendor/hls.min.js" defer></script>
   </head>
   <body>
-    <a class="skip-link" href="#channel-grid">Saltar al listado de canales</a>
+    <a class="skip-link" href="#main">Saltar al contenido</a>
 
-    <header class="topbar">
-      <div class="topbar__brand">
-        <span class="topbar__logo" aria-hidden="true">📺</span>
-        <div>
-          <h1 class="topbar__title">IPTV Costa Rica</h1>
-          <p class="topbar__subtitle" id="playlist-status">Cargando canales…</p>
+    <!-- ===================== Iconografía (SVG en línea, sin dependencias) ===================== -->
+    <svg class="sprite" aria-hidden="true" focusable="false" width="0" height="0" overflow="hidden">
+      <defs>
+        <g id="i-tv">
+          <rect x="1.5" y="4" width="13" height="8.5" rx="1.5" />
+          <path d="M8 4 5.8 1.4M8 4l2.2-2.6" />
+          <path d="M5.5 14.6h5" />
+        </g>
+        <g id="i-channels">
+          <rect x="1.8" y="2.2" width="5.4" height="5.4" rx="1.2" />
+          <rect x="8.8" y="2.2" width="5.4" height="5.4" rx="1.2" />
+          <rect x="1.8" y="8.4" width="5.4" height="5.4" rx="1.2" />
+          <rect x="8.8" y="8.4" width="5.4" height="5.4" rx="1.2" />
+        </g>
+        <g id="i-star">
+          <path d="M8 1.9 9.85 5.7l4.15.6-3 2.93.71 4.13L8 11.48 4.29 13.36l.7-4.13-3-2.93 4.15-.6z" />
+        </g>
+        <g id="i-clock">
+          <circle cx="8" cy="8" r="6.2" />
+          <path d="M8 4.7V8l2.3 1.5" />
+        </g>
+        <g id="i-sliders">
+          <path d="M2 4.6h12M2 11.4h12" />
+          <circle cx="5.6" cy="4.6" r="1.7" />
+          <circle cx="10.4" cy="11.4" r="1.7" />
+        </g>
+        <g id="i-search">
+          <circle cx="7.1" cy="7.1" r="4.6" />
+          <path d="M10.5 10.5 14 14" />
+        </g>
+        <g id="i-x">
+          <path d="M4.2 4.2 11.8 11.8M11.8 4.2 4.2 11.8" />
+        </g>
+        <g id="i-pulse">
+          <path d="M1.4 8.6h2.9l1.6-4.3 2.6 7.4 1.8-4.6 1.1 1.9h3.2" />
+        </g>
+        <g id="i-refresh">
+          <path d="M13.4 8a5.5 5.5 0 1 1-1.72-3.98" />
+          <path d="M13.6 1.7v2.9h-2.9" />
+        </g>
+        <g id="i-help">
+          <circle cx="8" cy="8" r="6.2" />
+          <path d="M6.3 6.2a1.78 1.78 0 1 1 2.42 1.66c-.5.2-.72.6-.72 1.12v.28" />
+          <circle class="fill" cx="8" cy="11.5" r=".85" />
+        </g>
+        <g id="i-menu">
+          <path d="M2.4 4.2h11.2M2.4 8h11.2M2.4 11.8h11.2" />
+        </g>
+        <g id="i-info">
+          <circle cx="8" cy="8" r="6.2" />
+          <path d="M8 7.3v3.7" />
+          <circle class="fill" cx="8" cy="5.2" r=".85" />
+        </g>
+        <g id="i-play">
+          <path d="M5.2 3.4 12.4 8l-7.2 4.6z" />
+        </g>
+      </defs>
+    </svg>
+
+    <div class="app">
+      <!-- ===================== Barra superior ===================== -->
+      <header class="topbar">
+        <button
+          type="button"
+          class="icon-btn topbar__menu"
+          id="btn-menu"
+          aria-label="Abrir navegación"
+          aria-expanded="false"
+          aria-controls="sidebar"
+        >
+          <svg class="icon" aria-hidden="true"><use href="#i-menu" /></svg>
+        </button>
+
+        <a class="topbar__brand" href="#main">
+          <span class="topbar__logo" aria-hidden="true">
+            <svg class="icon" aria-hidden="true"><use href="#i-tv" /></svg>
+          </span>
+          <span class="topbar__title">IPTV Costa Rica</span>
+        </a>
+
+        <p class="topbar__status" id="playlist-status-wrap">
+          <span class="dot" aria-hidden="true"></span>
+          <span id="playlist-status">Cargando canales…</span>
+        </p>
+
+        <div class="topbar__search">
+          <svg class="icon topbar__search-icon" aria-hidden="true"><use href="#i-search" /></svg>
+          <label class="sr-only" for="search">Buscar canales</label>
+          <input
+            id="search"
+            type="search"
+            placeholder="Buscar canal o categoría…"
+            autocomplete="off"
+            enterkeyhint="search"
+          />
+          <button type="button" class="icon-btn topbar__search-clear" id="search-clear" title="Limpiar búsqueda" aria-label="Limpiar búsqueda" hidden>
+            <svg class="icon" aria-hidden="true"><use href="#i-x" /></svg>
+          </button>
         </div>
+
+        <div class="topbar__actions">
+          <button type="button" class="btn" id="btn-check" title="Comprobar qué canales están en vivo">
+            <svg class="icon" aria-hidden="true"><use href="#i-pulse" /></svg>
+            <span class="btn__label">Comprobar</span>
+          </button>
+          <button type="button" class="btn" id="btn-refresh" title="Actualizar la lista de canales">
+            <svg class="icon" aria-hidden="true"><use href="#i-refresh" /></svg>
+            <span class="btn__label">Actualizar</span>
+          </button>
+          <button type="button" class="btn btn--icon" id="btn-help" title="Atajos de teclado y ayuda" aria-label="Ayuda">
+            <svg class="icon" aria-hidden="true"><use href="#i-help" /></svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="app__body">
+        <!-- ===================== Navegación lateral ===================== -->
+        <div class="scrim" id="sidebar-scrim" hidden></div>
+        <aside class="sidebar" id="sidebar" aria-label="Navegación principal">
+          <nav class="nav" id="main-nav" aria-label="Secciones">
+            <p class="nav__label">Biblioteca</p>
+            <ul class="nav__list">
+              <li>
+                <button type="button" class="nav__item is-active" data-view="channels" aria-current="page">
+                  <svg class="icon" aria-hidden="true"><use href="#i-channels" /></svg>
+                  <span class="nav__text">Canales</span>
+                  <span class="nav__count" id="nav-count-channels">0</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="nav__item" data-view="favorites">
+                  <svg class="icon" aria-hidden="true"><use href="#i-star" /></svg>
+                  <span class="nav__text">Favoritos</span>
+                  <span class="nav__count" id="nav-count-fav">0</span>
+                </button>
+              </li>
+            </ul>
+
+            <p class="nav__label">Guía</p>
+            <ul class="nav__list">
+              <li>
+                <button type="button" class="nav__item" data-view="epg">
+                  <svg class="icon" aria-hidden="true"><use href="#i-clock" /></svg>
+                  <span class="nav__text">Programación</span>
+                  <span class="nav__count" id="nav-count-epg">0</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="nav__item" data-view="settings">
+                  <svg class="icon" aria-hidden="true"><use href="#i-sliders" /></svg>
+                  <span class="nav__text">Ajustes</span>
+                </button>
+              </li>
+            </ul>
+          </nav>
+
+          <p class="sidebar__foot">
+            <span id="sidebar-sources">Datos de iptv-org · guía de iptv-epg.org</span>
+          </p>
+        </aside>
+
+        <!-- ===================== Contenido ===================== -->
+        <main class="main" id="main" tabindex="-1">
+          <!-- ---------- Canales ---------- -->
+          <section class="view is-active" data-view="channels" aria-label="Canales">
+            <header class="view__head">
+              <div class="view__heading">
+                <h2 class="view__title">Canales</h2>
+                <p class="view__sub" id="channels-sub">—</p>
+              </div>
+              <div class="view__tools">
+                <label class="switch">
+                  <input type="checkbox" id="hide-offline" />
+                  <span>Ocultar caídos</span>
+                </label>
+                <label class="switch">
+                  <input type="checkbox" id="show-epg" checked />
+                  <span>Mostrar programación</span>
+                </label>
+              </div>
+            </header>
+
+            <div class="toolbar">
+              <div class="chips" id="group-chips" role="group" aria-label="Filtrar por categoría"></div>
+            </div>
+
+            <p class="status-banner" id="status-banner" hidden></p>
+
+            <div class="list" id="channel-grid" role="list" tabindex="-1"></div>
+            <p class="empty-state" id="empty-state" hidden>Ningún canal coincide con tu búsqueda.</p>
+          </section>
+
+          <!-- ---------- Favoritos ---------- -->
+          <section class="view" data-view="favorites" aria-label="Favoritos" hidden>
+            <header class="view__head">
+              <div class="view__heading">
+                <h2 class="view__title">Favoritos</h2>
+                <p class="view__sub" id="favorites-sub">—</p>
+              </div>
+            </header>
+            <div class="list" id="favorites-grid" role="list" tabindex="-1"></div>
+            <p class="empty-state" id="favorites-empty" hidden>
+              Aún no tienes favoritos. Pulsa la estrella de un canal para guardarlo aquí.
+            </p>
+          </section>
+
+          <!-- ---------- Programación ---------- -->
+          <section class="view" data-view="epg" aria-label="Programación" hidden>
+            <header class="view__head">
+              <div class="view__heading">
+                <h2 class="view__title">Programación</h2>
+                <p class="view__sub" id="epg-sub">—</p>
+              </div>
+            </header>
+            <div class="guide" id="epg-list"></div>
+            <p class="empty-state" id="epg-empty" hidden>
+              Todavía no hay programación disponible. Vuelve a la lista de canales y actualiza la guía.
+            </p>
+          </section>
+
+          <!-- ---------- Ajustes ---------- -->
+          <section class="view" data-view="settings" aria-label="Ajustes" hidden>
+            <header class="view__head">
+              <div class="view__heading">
+                <h2 class="view__title">Ajustes</h2>
+                <p class="view__sub">Preferencias guardadas en este navegador.</p>
+              </div>
+            </header>
+
+            <div class="panels">
+              <section class="panel">
+                <h3 class="panel__title">
+                  <svg class="icon" aria-hidden="true"><use href="#i-channels" /></svg>
+                  Lista de canales
+                </h3>
+                <label class="switch">
+                  <input type="checkbox" id="show-epg-2" />
+                  <span>Mostrar programación en la lista</span>
+                </label>
+                <label class="switch">
+                  <input type="checkbox" id="hide-offline-2" />
+                  <span>Ocultar los canales caídos</span>
+                </label>
+                <p class="panel__note">
+                  Los filtros de categoría viven en la barra superior de la lista de canales.
+                </p>
+              </section>
+
+              <section class="panel">
+                <h3 class="panel__title">
+                  <svg class="icon" aria-hidden="true"><use href="#i-pulse" /></svg>
+                  Estado de las fuentes
+                </h3>
+                <dl class="facts">
+                  <dt>Lista</dt>
+                  <dd id="fact-playlist">—</dd>
+                  <dt>Guía</dt>
+                  <dd id="fact-epg">—</dd>
+                  <dt>Zona horaria</dt>
+                  <dd>America/Costa_Rica</dd>
+                </dl>
+                <div class="panel__actions">
+                  <button type="button" class="btn" id="btn-check-2">
+                    <svg class="icon" aria-hidden="true"><use href="#i-pulse" /></svg>
+                    <span>Comprobar canales</span>
+                  </button>
+                  <button type="button" class="btn" id="btn-refresh-2">
+                    <svg class="icon" aria-hidden="true"><use href="#i-refresh" /></svg>
+                    <span>Actualizar lista y guía</span>
+                  </button>
+                </div>
+              </section>
+
+              <section class="panel">
+                <h3 class="panel__title">
+                  <svg class="icon" aria-hidden="true"><use href="#i-info" /></svg>
+                  Acerca de
+                </h3>
+                <p class="panel__note" id="about-text">
+                  Cliente IPTV de escritorio para los canales de televisión de Costa Rica publicados por iptv-org.
+                  Busca, elige y reproduce sin salir de la aplicación.
+                </p>
+                <div class="panel__actions">
+                  <button type="button" class="btn" id="btn-help-2">
+                    <svg class="icon" aria-hidden="true"><use href="#i-help" /></svg>
+                    <span>Atajos y ayuda</span>
+                  </button>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <footer class="footer">
+            <p class="footer__copy">
+              Fuentes de vídeo: <a href="https://github.com/iptv-org/iptv" target="_blank" rel="noopener noreferrer">iptv-org</a> ·
+              Guía: <a href="https://iptv-epg.org" target="_blank" rel="noopener noreferrer">iptv-epg.org</a>
+            </p>
+            <p class="footer__note">
+              Uso personal y educativo. Muchos canales son privados o restringidos geográficamente; su disponibilidad
+              depende de tu conexión y de tu ubicación.
+            </p>
+            <p class="footer__note">© 2026 Shoropio Corporation. Todos los derechos reservados.</p>
+          </footer>
+        </main>
       </div>
-
-      <div class="topbar__search">
-        <label class="sr-only" for="search">Buscar canales</label>
-        <input
-          id="search"
-          type="search"
-          placeholder="Buscar canal o categoría…"
-          autocomplete="off"
-          enterkeyhint="search"
-        />
-        <button type="button" class="icon-btn topbar__search-clear" id="search-clear" title="Limpiar búsqueda" hidden>✕</button>
-      </div>
-
-      <div class="topbar__actions">
-        <button type="button" class="btn" id="btn-check" title="Comprobar qué canales están en vivo">
-          <span aria-hidden="true">📡</span> <span class="btn__label">Comprobar</span>
-        </button>
-        <button type="button" class="btn" id="btn-refresh" title="Actualizar la lista de canales">
-          <span aria-hidden="true">🔄</span> <span class="btn__label">Actualizar</span>
-        </button>
-        <button type="button" class="btn btn--icon" id="btn-help" title="Atajos de teclado y ayuda" aria-label="Ayuda">?</button>
-      </div>
-    </header>
-
-    <nav class="filters" aria-label="Filtros">
-      <div class="chips" id="group-chips"></div>
-      <div class="filters__right">
-        <label class="switch">
-          <input type="checkbox" id="hide-offline" />
-          <span>Ocultar caídos</span>
-        </label>
-        <label class="switch">
-          <input type="checkbox" id="show-epg" checked />
-          <span>Mostrar programación</span>
-        </label>
-      </div>
-    </nav>
-
-    <main>
-      <p class="status-banner" id="status-banner" hidden></p>
-      <div class="grid" id="channel-grid" role="list" tabindex="-1"></div>
-      <p class="empty-state" id="empty-state" hidden>Ningún canal coincide con tu búsqueda.</p>
-    </main>
-
-    <footer class="footer">
-      <p>
-        Fuentes de vídeo: <a href="https://github.com/iptv-org/iptv" target="_blank" rel="noopener noreferrer">iptv-org</a> ·
-        Guía: <a href="https://iptv-epg.org" target="_blank" rel="noopener noreferrer">iptv-epg.org</a>
-      </p>
-      <p class="footer__note">
-        Uso personal y educativo. Muchos canales son privado o restringido geográficamente; su disponibilidad
-        depende de tu conexión y de tu ubicación.
-      </p>
-      <p class="footer__copy">© 2026 Shoropio Corporation. Todos los derechos reservados.</p>
-    </footer>
+    </div>
 
     <!-- ===================== Reproductor ===================== -->
     <div class="player" id="player" hidden aria-hidden="true">
@@ -101,10 +344,11 @@
             <button type="button" class="icon-btn" id="btn-close-player" title="Cerrar (Esc)" aria-label="Cerrar reproductor">✕</button>
             <div class="player__now">
               <img class="player__logo" id="player-logo" alt="" referrerpolicy="no-referrer" />
-              <div>
+              <div class="player__nowtext">
                 <strong id="player-channel-name">—</strong>
                 <span id="player-channel-meta"></span>
               </div>
+              <span class="live-badge" id="player-live" hidden>En vivo</span>
             </div>
             <div class="player__topactions">
               <button type="button" class="icon-btn" id="btn-fav" title="Favorito" aria-label="Marcar como favorito">☆</button>
@@ -119,19 +363,23 @@
 
         <div class="player__panel">
           <div class="player__controls">
-            <button type="button" class="icon-btn" id="btn-prev" title="Canal anterior (←)" aria-label="Canal anterior">⏮</button>
-            <button type="button" class="icon-btn" id="btn-next" title="Canal siguiente (→)" aria-label="Canal siguiente">⏭</button>
-            <button type="button" class="icon-btn" id="btn-play" title="Reproducir / Pausa (Espacio)" aria-label="Reproducir">▶</button>
-            <button type="button" class="icon-btn" id="btn-mute" title="Silenciar (M)" aria-label="Silenciar">🔊</button>
-            <button type="button" class="icon-btn" id="btn-pip" title="Imagen en imagen (P)" aria-label="Imagen en imagen">⧉</button>
-            <button type="button" class="icon-btn" id="btn-fullscreen" title="Pantalla completa (F)" aria-label="Pantalla completa">⛶</button>
+            <div class="player__buttons">
+              <button type="button" class="icon-btn" id="btn-prev" title="Canal anterior (←)" aria-label="Canal anterior">⏮</button>
+              <button type="button" class="icon-btn" id="btn-play" title="Reproducir / Pausa (Espacio)" aria-label="Reproducir">▶</button>
+              <button type="button" class="icon-btn" id="btn-mute" title="Silenciar (M)" aria-label="Silenciar">🔊</button>
+              <button type="button" class="icon-btn" id="btn-next" title="Canal siguiente (→)" aria-label="Canal siguiente">⏭</button>
+              <span class="player__divider" aria-hidden="true"></span>
+              <button type="button" class="icon-btn" id="btn-pip" title="Imagen en imagen (P)" aria-label="Imagen en imagen">⧉</button>
+              <button type="button" class="icon-btn" id="btn-fullscreen" title="Pantalla completa (F)" aria-label="Pantalla completa">⛶</button>
+            </div>
 
-            <label class="quality" id="quality-wrap" hidden>
-              <span>Calidad</span>
-              <select id="quality-select" aria-label="Calidad de vídeo"></select>
-            </label>
-
-            <span class="player__stat" id="player-stat"></span>
+            <div class="player__meta">
+              <span class="player__stat" id="player-stat"></span>
+              <label class="quality" id="quality-wrap" hidden>
+                <span>Calidad</span>
+                <select id="quality-select" aria-label="Calidad de vídeo"></select>
+              </label>
+            </div>
           </div>
 
           <div class="player__tabs" role="tablist">
@@ -158,7 +406,9 @@
       <div class="modal__box" role="dialog" aria-modal="true" aria-label="Ayuda" tabindex="-1">
         <div class="modal__head">
           <h2>Ayuda y atajos</h2>
-          <button type="button" class="icon-btn" id="btn-help-close" aria-label="Cerrar">✕</button>
+          <button type="button" class="icon-btn" id="btn-help-close" aria-label="Cerrar">
+            <svg class="icon" aria-hidden="true"><use href="#i-x" /></svg>
+          </button>
         </div>
         <div class="modal__body">
           <h3>Atajos de teclado</h3>

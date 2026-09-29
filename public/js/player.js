@@ -83,6 +83,8 @@ export class Player {
   async load(channel) {
     this.channel = channel;
     this.netRetries = 0;
+    // Cada carga arranca sin distintivo EN VIVO: lo enciende el evento `play`.
+    this.#setLive(false);
 
     $('#player-channel-name').textContent = channel.name;
     const meta = [(channel.groupLabels ?? channel.groups).join(', '), channel.is24x7 ? '24/7' : 'No 24/7', channel.upstreamHost]
@@ -388,8 +390,15 @@ export class Player {
         text: current ? fmtRange(current.start, current.stop) : '',
         dataset: current ? { range: `${current.start}|${current.stop}` } : {},
       }),
+      // Barra de avance del programa en curso: mismo dato, solo presentación.
+      current
+        ? el('div', { class: 'progress', dataset: { start: String(current.start), stop: String(current.stop) } }, [
+            el('div', { class: 'progress__bar' }),
+          ])
+        : null,
       current?.desc ? el('div', { class: 'epg-now__desc', text: current.desc }) : null,
     );
+    this.#paintProgress();
 
     // Rest of today, plus a few hours of tomorrow for late-night viewing.
     const endOfDay = new Date(now).setHours(24, 0, 0, 0);
@@ -416,6 +425,18 @@ export class Player {
     );
   }
 
+  /** Avance del programa en curso, derivado de las horas ya cargadas. */
+  #paintProgress() {
+    const bar = this.epgNow.querySelector('.progress');
+    if (!bar) return;
+    const start = Number(bar.dataset.start);
+    const stop = Number(bar.dataset.stop);
+    const span = stop - start;
+    if (!span) return;
+    const value = Math.min(100, Math.max(0, ((Date.now() - start) / span) * 100));
+    bar.querySelector('.progress__bar')?.style.setProperty('--p', `${value.toFixed(1)}%`);
+  }
+
   /** Called every minute so "En curso" and the timeline highlights stay honest. */
   #refreshNowState() {
     const now = Date.now();
@@ -430,6 +451,7 @@ export class Player {
       if (title) title.textContent = current.title || 'Sin título';
       timeEl.textContent = fmtRange(current.start, current.stop);
     }
+    this.#paintProgress();
 
     // Walk the timeline entries in order, painting past/current state.
     const items = [...this.epgTimeline.querySelectorAll('li')];
@@ -528,6 +550,8 @@ export class Player {
 
   #setStatus(message, loading, extra = null) {
     this.overlay.classList.toggle('is-visible', !!message);
+    // Un error apaga el distintivo EN VIVO: el badge no puede mentir.
+    if (message && !loading) this.#setLive(false);
     this.statusEl.replaceChildren(
       ...(message ? [message] : []),
       ...(extra ? [extra] : []),
@@ -541,6 +565,13 @@ export class Player {
   #clearError() {
     this.pendingHost = null;
     this.overlay.classList.remove('is-visible');
+  }
+
+  /** Distintivo EN VIVO junto al nombre del canal: refleja el estado real. */
+  #setLive(on) {
+    this.root.classList.toggle('is-live', on);
+    const badge = $('#player-live');
+    if (badge) badge.hidden = !on;
   }
 
   #syncFavoriteButton() {
@@ -591,10 +622,12 @@ export class Player {
     // Keep the play/mute glyphs in sync with the media element.
     this.video.addEventListener('play', () => {
       $('#btn-play').textContent = '⏸';
+      this.#setLive(true);
       this.#clearError();
     });
     this.video.addEventListener('pause', () => {
       $('#btn-play').textContent = '▶';
+      this.#setLive(false);
     });
     this.video.addEventListener('volumechange', () => {
       $('#btn-mute').textContent = this.video.muted || this.video.volume === 0 ? '🔇' : '🔊';

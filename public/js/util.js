@@ -144,7 +144,7 @@ export function trapTab(container, event) {
 }
 
 /** Page content hidden from clicks and screen readers while a modal is open. */
-const BACKGROUND = ['.skip-link', '.topbar', '.filters', 'main', '.footer'];
+const BACKGROUND = ['.skip-link', '.app'];
 
 export function setBackgroundInert(on) {
   for (const selector of BACKGROUND) document.querySelector(selector)?.toggleAttribute('inert', on);
